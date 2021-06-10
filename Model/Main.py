@@ -4,10 +4,14 @@ Tensorflow Implementation of Knowledge Graph Attention Network (KGAT) model in:
 Wang Xiang et al. KGAT: Knowledge Graph Attention Network for Recommendation. In KDD 2019.
 @author: Xiang Wang (xiangwang@u.nus.edu)
 '''
-import tensorflow as tf
+# =============================================================================
+# import tensorflow as tf
+# =============================================================================
+import tensorflow.compat.v1 as tf
 from utility.helper import *
 from utility.batch_test import *
 from time import time
+import warnings 
 
 from BPRMF import BPRMF
 from CKE import CKE
@@ -21,7 +25,14 @@ import sys
 os.environ['TF_CPP_MIN_LOG_LEVEL']='2'
 
 def load_pretrained_data(args):
+    tf.disable_v2_behavior()
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
+    session = tf.Session(config=config)
     pre_model = 'mf'
+# =============================================================================
+#     if args.pretrain == -1:
+# =============================================================================
     if args.pretrain == -2:
         pre_model = 'kgat'
     pretrain_path = '%spretrain/%s/%s.npz' % (args.proj_path, args.dataset, pre_model)
@@ -34,8 +45,12 @@ def load_pretrained_data(args):
 
 
 if __name__ == '__main__':
+    warnings.filterwarnings("ignore", category=RuntimeWarning)
     # get argument settings.
     tf.set_random_seed(2019)
+# =============================================================================
+#     tf.random.set_seed(2019)
+# =============================================================================
     np.random.seed(2019)
     args = parse_args()
 
@@ -312,6 +327,8 @@ if __name__ == '__main__':
         ndcg_loger.append(ret['ndcg'])
         hit_loger.append(ret['hit_ratio'])
 
+        #t3 - t2 is test time
+        #epoch training time
         if args.verbose > 0:
             perf_str = 'Epoch %d [%.1fs + %.1fs]: train==[%.5f=%.5f + %.5f + %.5f], recall=[%.5f, %.5f], ' \
                        'precision=[%.5f, %.5f], hit=[%.5f, %.5f], ndcg=[%.5f, %.5f]' % \

@@ -4,7 +4,13 @@ Tensorflow Implementation of Knowledge Graph Attention Network (KGAT) model in:
 Wang Xiang et al. KGAT: Knowledge Graph Attention Network for Recommendation. In KDD 2019.
 @author: Xiang Wang (xiangwang@u.nus.edu)
 '''
-import tensorflow as tf
+# =============================================================================
+# import tensorflow as tf
+# =============================================================================
+import tensorflow.compat.v1 as tf
+# =============================================================================
+# tf.disable_v2_behavior() 
+# =============================================================================
 import os
 import numpy as np
 import scipy.sparse as sp
@@ -12,6 +18,10 @@ os.environ['TF_CPP_MIN_LOG_LEVEL']='2'
 
 class KGAT(object):
     def __init__(self, data_config, pretrain_data, args):
+        tf.disable_v2_behavior()
+        config = tf.ConfigProto()
+        config.gpu_options.allow_growth = True
+        session = tf.Session(config=config)
         self._parse_args(data_config, pretrain_data, args)
         '''
         *********************************************************
@@ -84,6 +94,7 @@ class KGAT(object):
         self.kge_dim = args.kge_size
         self.batch_size_kg = args.batch_size_kg
 
+        # Danielle - added list caste - code couldn't run as tuple
         self.weight_size = eval(args.layer_size)
         self.n_layers = len(self.weight_size)
 
@@ -93,6 +104,7 @@ class KGAT(object):
         self.regs = eval(args.regs)
         self.verbose = args.verbose
 
+    # edited for tensorflow version 1 compatability
     def _build_inputs(self):
         # placeholder definition
         self.users = tf.placeholder(tf.int32, shape=(None,))
@@ -111,11 +123,33 @@ class KGAT(object):
         # message dropout (adopted on the convolution operations).
         self.node_dropout = tf.placeholder(tf.float32, shape=[None])
         self.mess_dropout = tf.placeholder(tf.float32, shape=[None])
+# =============================================================================
+#         # placeholder definition
+#         self.users = tf.compat.v1.placeholder(tf.int32, shape=(None,))
+#         self.pos_items = tf.compat.v1.placeholder(tf.int32, shape=(None,))
+#         self.neg_items = tf.compat.v1.placeholder(tf.int32, shape=(None,))
+# 
+#         # for knowledge graph modeling (TransD)
+#         self.A_values = tf.compat.v1.placeholder(tf.float32, shape=[len(self.all_v_list)], name='A_values')
+# 
+#         self.h = tf.compat.v1.placeholder(tf.int32, shape=[None], name='h')
+#         self.r = tf.compat.v1.placeholder(tf.int32, shape=[None], name='r')
+#         self.pos_t = tf.compat.v1.placeholder(tf.int32, shape=[None], name='pos_t')
+#         self.neg_t = tf.compat.v1.placeholder(tf.int32, shape=[None], name='neg_t')
+# 
+#         # dropout: node dropout (adopted on the ego-networks);
+#         # message dropout (adopted on the convolution operations).
+#         self.node_dropout = tf.compat.v1.placeholder(tf.float32, shape=[None])
+#         self.mess_dropout = tf.compat.v1.placeholder(tf.float32, shape=[None])
+# =============================================================================
 
     def _build_weights(self):
         all_weights = dict()
-
-        initializer = tf.contrib.layers.xavier_initializer()
+        initializer = tf.initializers.glorot_uniform()
+# =============================================================================
+#         initializer = tf.keras.initializers.GlorotUniform()
+#         initializer = tf.contrib.layers.xavier_initializer()
+# =============================================================================
 
         if self.pretrain_data is None:
             all_weights['user_embed'] = tf.Variable(initializer([self.n_users, self.emb_dim]), name='user_embed')
@@ -137,7 +171,7 @@ class KGAT(object):
         all_weights['trans_W'] = tf.Variable(initializer([self.n_relations, self.emb_dim, self.kge_dim]))
 
         self.weight_size_list = [self.emb_dim] + self.weight_size
-
+        print(self.weight_size_list)
 
         for k in range(self.n_layers):
             all_weights['W_gc_%d' %k] = tf.Variable(
@@ -227,7 +261,7 @@ class KGAT(object):
         self.loss = self.base_loss + self.kge_loss + self.reg_loss
 
         # Optimization process.RMSPropOptimizer
-        self.opt = tf.train.AdamOptimizer(learning_rate=self.lr).minimize(self.loss)
+        self.opt = tf.compat.v1.train.AdamOptimizer(learning_rate=self.lr).minimize(self.loss)
 
     def _build_loss_phase_II(self):
         def _get_kg_score(h_e, r_e, t_e):
@@ -252,7 +286,7 @@ class KGAT(object):
         self.loss2 = self.kge_loss2 + self.reg_loss2
 
         # Optimization process.
-        self.opt2 = tf.train.AdamOptimizer(learning_rate=self.lr).minimize(self.loss2)
+        self.opt2 = tf.compat.v1.train.AdamOptimizer(learning_rate=self.lr).minimize(self.loss2)
 
     def _create_bi_interaction_embed(self):
         A = self.A_in
@@ -261,12 +295,15 @@ class KGAT(object):
 
         ego_embeddings = tf.concat([self.weights['user_embed'], self.weights['entity_embed']], axis=0)
         all_embeddings = [ego_embeddings]
-
+        
+        i = 0
         for k in range(0, self.n_layers):
+            print("layer ", i)
+            i += 1
             # A_hat_drop = tf.nn.dropout(A_hat, 1 - self.node_dropout[k], [self.n_users + self.n_items, 1])
             temp_embed = []
             for f in range(self.n_fold):
-                temp_embed.append(tf.sparse_tensor_dense_matmul(A_fold_hat[f], ego_embeddings))
+                temp_embed.append(tf.compat.v1.sparse_tensor_dense_matmul(A_fold_hat[f], ego_embeddings))
 
             # sum messages of neighbors.
             side_embeddings = tf.concat(temp_embed, 0)
@@ -274,9 +311,7 @@ class KGAT(object):
             add_embeddings = ego_embeddings + side_embeddings
 
             # transformed sum messages of neighbors.
-            sum_embeddings = tf.nn.leaky_relu(
-                tf.matmul(add_embeddings, self.weights['W_gc_%d' % k]) + self.weights['b_gc_%d' % k])
-
+            sum_embeddings = tf.nn.leaky_relu(tf.matmul(add_embeddings, self.weights['W_gc_%d' % k]) + self.weights['b_gc_%d' % k])
 
             # bi messages of neighbors.
             bi_embeddings = tf.multiply(ego_embeddings, side_embeddings)
@@ -310,7 +345,7 @@ class KGAT(object):
             # A_hat_drop = tf.nn.dropout(A_hat, 1 - self.node_dropout[k], [self.n_users + self.n_items, 1])
             temp_embed = []
             for f in range(self.n_fold):
-                temp_embed.append(tf.sparse_tensor_dense_matmul(A_fold_hat[f], embeddings))
+                temp_embed.append(tf.compat.v1.sparse_tensor_dense_matmul(A_fold_hat[f], embeddings))
 
             embeddings = tf.concat(temp_embed, 0)
             embeddings = tf.nn.leaky_relu(
@@ -339,7 +374,7 @@ class KGAT(object):
             # line 1 in algorithm 1 [RM-GCN, KDD'2018], aggregator layer: weighted sum
             temp_embed = []
             for f in range(self.n_fold):
-                temp_embed.append(tf.sparse_tensor_dense_matmul(A_fold_hat[f], pre_embeddings))
+                temp_embed.append(tf.compat.v1.sparse_tensor_dense_matmul(A_fold_hat[f], pre_embeddings))
             embeddings = tf.concat(temp_embed, 0)
 
             # line 2 in algorithm 1 [RM-GCN, KDD'2018], aggregating the previsou embeddings

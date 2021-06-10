@@ -15,7 +15,7 @@ def parse_args():
     parser.add_argument('--proj_path', nargs='?', default='',
                         help='Project path.')
 
-    parser.add_argument('--dataset', nargs='?', default='yelp2018',
+    parser.add_argument('--dataset', nargs='?', default='last-fm',
                         help='Choose a dataset from {yelp2018, last-fm, amazon-book}')
     parser.add_argument('--pretrain', type=int, default=0,
                         help='0: No pretrain, -1: Pretrain with the learned embeddings, 1:Pretrain with stored models.')
@@ -31,12 +31,12 @@ def parse_args():
     parser.add_argument('--layer_size', nargs='?', default='[64]',
                         help='Output sizes of every layer')
 
-    parser.add_argument('--batch_size', type=int, default=1024,
+    parser.add_argument('--batch_size', type=int, default=10240, # default=1024,
                         help='CF batch size.')
-    parser.add_argument('--batch_size_kg', type=int, default=2048,
+    parser.add_argument('--batch_size_kg', type=int, default=3716, # default=2048,
                         help='KG batch size.')
 
-    parser.add_argument('--regs', nargs='?', default='[1e-5,1e-5,1e-2]',
+    parser.add_argument('--regs', nargs='?', default='[1e-5,1e-5]', #default='[1e-5,1e-5,1e-2]',
                         help='Regularization for user and item embeddings.')
     parser.add_argument('--lr', type=float, default=0.0001,
                         help='Learning rate.')
@@ -45,7 +45,7 @@ def parse_args():
                         help='Specify a loss type from {kgat, bprmf, fm, nfm, cke, cfkg}.')
     parser.add_argument('--adj_type', nargs='?', default='si',
                         help='Specify the type of the adjacency (laplacian) matrix from {bi, si}.')
-    parser.add_argument('--alg_type', nargs='?', default='ngcf',
+    parser.add_argument('--alg_type', nargs='?', default='bi', #default='ngcf',
                         help='Specify the type of the graph convolutional layer from {bi, gcn, graphsage}.')
     parser.add_argument('--adj_uni_type', nargs='?', default='sum',
                         help='Specify a loss type (uni, sum).')
@@ -58,7 +58,7 @@ def parse_args():
     parser.add_argument('--mess_dropout', nargs='?', default='[0.1]',
                         help='Keep probability w.r.t. message dropout (i.e., 1-dropout_ratio) for each deep layer. 1: no dropout.')
 
-    parser.add_argument('--Ks', nargs='?', default='[20, 40, 60, 80, 100]',
+    parser.add_argument('--Ks', nargs='?', default='[5, 7, 10, 15, 20]', #default='[20, 40, 60, 80, 100]',
                         help='Output sizes of every layer')
 
     parser.add_argument('--save_flag', type=int, default=0,
